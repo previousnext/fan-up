@@ -1,4 +1,4 @@
-FAN Up
+Fan Up
 ======
 
 A daemon for ensuring the fan network bridge is up.
