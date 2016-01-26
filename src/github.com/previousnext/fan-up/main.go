@@ -30,31 +30,30 @@ func main() {
 	for {
 		<-limiter
 
-		i, err := exists(bridge)
-		if err != nil {
-			log.Println("Cannot find interface, will try again soon.")
-			continue
-		}
-		log.Println("The interface already exists, no action needs to be taken.")
-
-		// Get the IP address of the interface.
-		address, err := ip(i)
+		// Check that the interface exists that we are going to start a fan network against.
+		e, ip, err := find(*cliInterface)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 
+		// Ensure the interface we are building against.
+		if !e {
+			log.Printf("Cannot find the interface: %s\n", *cliInterface)
+			continue
+		}
+
 		// Run the command to bring up the interface.
-		err = shellOut(fmt.Sprintf("fanctl up %s/8 %s/16 dhcp bridge %s", *cliOverlay, address, bridge))
+		err = shellOut(fmt.Sprintf("fanctl up %s/8 %s/16 dhcp bridge %s", *cliOverlay, ip, bridge))
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 
 		// Query for the interface again.
-		i, err = exists(bridge)
-		if err != nil {
-			log.Println(err)
+		e, ip, err = find(bridge)
+		if !e {
+			log.Println("The interface has not come up")
 			continue
 		}
 		log.Println("The interface has now come up")
@@ -62,19 +61,23 @@ func main() {
 }
 
 // Helper function to find our interface.
-func exists(n string) (net.Interface, error) {
+func find(n string) (bool, string, error) {
 	ints, err := net.Interfaces()
 	if err != nil {
-		return net.Interface{}, err
+		return false, "", err
 	}
 
 	for _, i := range ints {
 		if i.Name == n {
-			return i, nil
+			ip, err := ip(i)
+			if err != nil {
+				continue
+			}
+			return true, ip, nil
 		}
 	}
 
-	return net.Interface{}, errors.New("Cannot find interface.")
+	return false, "", nil
 }
 
 func ip(i net.Interface) (string, error) {
