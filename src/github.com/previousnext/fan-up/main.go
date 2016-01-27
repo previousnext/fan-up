@@ -27,46 +27,53 @@ func main() {
 		limiter = time.Tick(time.Second * 15)
 	)
 
+	// Run this once before we get into the loop.
+	run(bridge, *cliInterface, *cliOverlay)
+
 	for {
 		<-limiter
-
-        // Does the bridge already exist? If it does we don't need to do anything.
-        e, _, err := find(bridge)
-		if err != nil {
-			Fatal(err.Error())
-			continue
-		}
-        if e {
-			Info(fmt.Sprintf("The bridge %s is up, no action is required.", bridge))
-			continue
-		}
-        
-        // Does the interface we want to associate with exist? If it does then we need to create fan network.
-        e, ip, err := find(*cliInterface)
-		if err != nil {
-			Fatal(err.Error())
-			continue
-		}
-        if !e {
-			Fatal(fmt.Sprintf("Cannot find the interface %s, cannot setup the fan network.", *cliInterface))
-			continue
-		}
-
-		// Run the command to bring up the interface.
-		err = shellOut(fmt.Sprintf("fanctl up %s/8 %s/16 dhcp bridge %s", *cliOverlay, ip, bridge))
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		// Query for the interface again to ensure it now exists.
-		e, _, err = find(bridge)
-		if !e {
-			Fatal("The interface has not come up!")
-			continue
-		}
-		Info("The interface has now come up!")
+		run(bridge, *cliInterface, *cliOverlay)
 	}
+}
+
+// This is the main fan networking checking logic.
+func run(bridge, face, overlay string) {
+	// Does the bridge already exist? If it does we don't need to do anything.
+	e, _, err := find(bridge)
+	if err != nil {
+		Fatal(err.Error())
+		return
+	}
+	if e {
+		Info(fmt.Sprintf("The bridge %s is up, no action is required.", bridge))
+		return
+	}
+
+	// Does the interface we want to associate with exist? If it does then we need to create fan network.
+	e, ip, err := find(*cliInterface)
+	if err != nil {
+		Fatal(err.Error())
+		return
+	}
+	if !e {
+		Fatal(fmt.Sprintf("Cannot find the interface %s, cannot setup the fan network.", *cliInterface))
+		return
+	}
+
+	// Run the command to bring up the interface.
+	err = shellOut(fmt.Sprintf("fanctl up %s/8 %s/16 dhcp bridge %s", *cliOverlay, ip, bridge))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// Query for the interface again to ensure it now exists.
+	e, _, err = find(bridge)
+	if !e {
+		Fatal("The interface has not come up!")
+		return
+	}
+	Info("The interface has now come up!")
 }
 
 // Helper function to find our interface.
