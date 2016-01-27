@@ -30,16 +30,25 @@ func main() {
 	for {
 		<-limiter
 
-		// Check that the interface exists that we are going to start a fan network against.
-		e, ip, err := find(*cliInterface)
+        // Does the bridge already exist? If it does we don't need to do anything.
+        e, _, err := find(bridge)
 		if err != nil {
-			log.Println(err)
+			Fatal(err.Error())
 			continue
 		}
-
-		// Ensure the interface we are building against.
-		if !e {
-			log.Printf("Cannot find the interface: %s\n", *cliInterface)
+        if e {
+			Info(fmt.Sprintf("The bridge %s is up, no action is required.", bridge))
+			continue
+		}
+        
+        // Does the interface we want to associate with exist? If it does then we need to create fan network.
+        e, ip, err := find(*cliInterface)
+		if err != nil {
+			Fatal(err.Error())
+			continue
+		}
+        if !e {
+			Fatal(fmt.Sprintf("Cannot find the interface %s, cannot setup the fan network.", *cliInterface))
 			continue
 		}
 
@@ -50,13 +59,13 @@ func main() {
 			continue
 		}
 
-		// Query for the interface again.
-		e, ip, err = find(bridge)
+		// Query for the interface again to ensure it now exists.
+		e, _, err = find(bridge)
 		if !e {
-			log.Println("The interface has not come up")
+			Fatal("The interface has not come up!")
 			continue
 		}
-		log.Println("The interface has now come up")
+		Info("The interface has now come up!")
 	}
 }
 
@@ -80,6 +89,7 @@ func find(n string) (bool, string, error) {
 	return false, "", nil
 }
 
+// Helper function to get the interfaces IP address.
 func ip(i net.Interface) (string, error) {
 	addrs, err := i.Addrs()
 	if err != nil {
